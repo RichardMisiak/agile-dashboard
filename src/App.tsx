@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
 import { Card, CardContent, CardHeader, CardTitle } from "./components/ui/card";
+import { useEffect, useState } from "react";
 
 type OctopusResponse = {
   count: number;
@@ -16,35 +17,79 @@ type OctopusResponse = {
 };
 
 export const App: React.FC = () => {
+  // rubbish mechanism for periodically reloading the calculation
+  const [_render, setRender] = useState(0);
+
+  // fetch data from the octopus api
   const getDataQuery = useQuery({
     queryKey: ["data"],
     queryFn: async () => {
       const { data } = await axios.get<OctopusResponse>(
         "https://api.octopus.energy/v1/products/AGILE-24-04-03/electricity-tariffs/E-1R-AGILE-24-04-03-D/standard-unit-rates/?page_size=96"
       );
-      return {
+      const results = {
         ...data,
         results: data.results.sort((a, b) =>
           a.valid_to.localeCompare(b.valid_to)
         ),
       };
+      return results;
     },
   });
 
-  if (getDataQuery.isLoading)
-    return <p className="text-center text-gray-500">Loading prices...</p>;
-  if (getDataQuery.error)
-    return <p className="text-red-500 text-center">Error fetching prices</p>;
-  if (!getDataQuery.data)
-    return <p className="text-center text-gray-500">Loading prices...</p>;
-
-  const currentPriceIndex = getDataQuery.data.results.findIndex(
+  // find the current and next prices
+  const currentPriceIndex = (getDataQuery.data?.results ?? []).findIndex(
     (x) =>
       new Date(x.valid_from) <= new Date() && new Date() <= new Date(x.valid_to)
   );
-  const currentPrice = getDataQuery.data.results[currentPriceIndex];
+  const currentPrice = getDataQuery.data?.results[currentPriceIndex];
+  const nextPrice = getDataQuery.data?.results[currentPriceIndex + 1];
 
-  const nextPrice = getDataQuery.data.results[currentPriceIndex + 1];
+  useEffect(() => {
+    const calc = () => {
+      // force rerender to refresh calculation (hacky)
+      setRender((r) => r + 1);
+      const currentPriceIndex = (getDataQuery.data?.results ?? []).findIndex(
+        (x) =>
+          new Date(x.valid_from) <= new Date() &&
+          new Date() <= new Date(x.valid_to)
+      );
+      const currentPrice = getDataQuery.data?.results[currentPriceIndex];
+
+      if (currentPrice) {
+        // update the tab/document title when it changes
+        const newTitle = `${(
+          Math.round(currentPrice.value_inc_vat * 100) / 100
+        ).toFixed(2)}p`;
+        if (document.title != newTitle) {
+          document.title = newTitle;
+        }
+      }
+    };
+
+    // perdiocially refresh
+    const interval = window.setInterval(() => {
+      calc();
+    }, 10 * 1000);
+
+    calc();
+
+    return () => {
+      window.clearInterval(interval);
+    };
+  }, [getDataQuery.data]);
+
+  if (getDataQuery.isLoading) {
+    return <p className="text-center text-gray-500 p-4">Loading prices...</p>;
+  }
+
+  if (getDataQuery.error) {
+    return <p className="text-red-500 text-center">Error fetching prices</p>;
+  }
+
+  if (!getDataQuery.data) {
+    return <p className="text-center text-gray-500">Loading prices...</p>;
+  }
 
   return (
     <div className="flex flex-column gap-2 p-6 items-center justify-center w-full">
@@ -53,11 +98,11 @@ export const App: React.FC = () => {
           {/* Current Price Card */}
           <Card>
             <CardHeader>
-              <CardTitle>Current Price</CardTitle>
+              <CardTitle className="">Current Price</CardTitle>
             </CardHeader>
             {currentPrice != null && (
               <CardContent>
-                <p className="text-lg font-bold">
+                <p className="text-lg font-bold text-blue-500">
                   {(Math.round(currentPrice.value_inc_vat * 100) / 100).toFixed(
                     2
                   )}
