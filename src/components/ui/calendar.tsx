@@ -1,9 +1,9 @@
-import * as React from "react"
-import { ChevronLeft, ChevronRight } from "lucide-react"
-import { DayPicker } from "react-day-picker"
+import * as React from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { DayPicker, type DayPickerProps } from "react-day-picker";
 
-import { cn } from "@/lib/utils"
-import { buttonVariants } from "@/components/ui/button"
+import { cn } from "@/lib/utils";
+import { buttonVariants } from "@/components/ui/button";
 
 function Calendar({
   className,
@@ -57,17 +57,28 @@ function Calendar({
         day_hidden: "invisible",
         ...classNames,
       }}
-      components={{
-        IconLeft: ({ className, ...props }) => (
-          <ChevronLeft className={cn("size-4", className)} {...props} />
-        ),
-        IconRight: ({ className, ...props }) => (
-          <ChevronRight className={cn("size-4", className)} {...props} />
-        ),
-      }}
+      components={
+        {
+          IconLeft: ({
+            className,
+            ...props
+          }: {
+            className?: string;
+            props?: React.SVGProps<SVGSVGElement>;
+          }) => <ChevronLeft className={cn("size-4", className)} {...props} />,
+
+          IconRight: ({
+            className,
+            ...props
+          }: {
+            className?: string;
+            props?: React.SVGProps<SVGSVGElement>;
+          }) => <ChevronRight className={cn("size-4", className)} {...props} />,
+        } as unknown as Partial<DayPickerProps["components"]>
+      }
       {...props}
     />
-  )
+  );
 }
 
-export { Calendar }
+export { Calendar };
