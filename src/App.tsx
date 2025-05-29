@@ -60,7 +60,9 @@ export const App: React.FC = () => {
         // update the tab/document title when it changes
         const newTitle = `${(
           Math.round(currentPrice.value_inc_vat * 100) / 100
-        ).toFixed(2)}p`;
+        ).toFixed(2)}p (${new Date(currentPrice.valid_from)
+          .toLocaleTimeString()
+          .slice(0, -3)})`;
         if (document.title != newTitle) {
           document.title = newTitle;
         }
