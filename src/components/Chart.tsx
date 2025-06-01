@@ -9,6 +9,8 @@ import {
   ReferenceLine,
 } from "recharts";
 
+const SVT = 25.76;
+
 const processData = (data: Price[]) => {
   const now = new Date();
 
@@ -43,7 +45,7 @@ export const Chart: React.FC<{ data: Price[] }> = ({ data }) => {
         }}
         formatter={(x) => `${x} p/kWh`}
       />
-      <ReferenceLine y={20} label="SVT" strokeDasharray="3 3"></ReferenceLine>
+      <ReferenceLine y={SVT} label="SVT" strokeDasharray="3 3"></ReferenceLine>
       <Bar dataKey="price">
         {processedData.map((entry) => {
           if (entry.isCurrent) {
