@@ -1,7 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
 import { Card, CardContent, CardHeader, CardTitle } from "./components/ui/card";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { Chart } from "./components/Chart";
+import type { Price } from "./types";
 
 type OctopusResponse = {
   count: number;
@@ -16,9 +18,12 @@ type OctopusResponse = {
   }[];
 };
 
+const formatPrice = (price: number) =>
+  (Math.round(price * 100) / 100).toFixed(2);
+
 export const App: React.FC = () => {
-  // rubbish mechanism for periodically reloading the calculation
-  const [_render, setRender] = useState(0);
+  const [currentPriceIndex, setCurrentPriceIndex] = useState(-1);
+  const priceListItemRefs = useRef<Record<string, HTMLElement>>({});
 
   // fetch data from the octopus api
   const getDataQuery = useQuery({
@@ -37,24 +42,22 @@ export const App: React.FC = () => {
     },
   });
 
-  // find the current and next prices
-  const currentPriceIndex = (getDataQuery.data?.results ?? []).findIndex(
-    (x) =>
-      new Date(x.valid_from) <= new Date() && new Date() <= new Date(x.valid_to)
-  );
-  const currentPrice = getDataQuery.data?.results[currentPriceIndex];
-  const nextPrice = getDataQuery.data?.results[currentPriceIndex + 1];
-
   useEffect(() => {
+    // find the current price, store the result and
     const calc = () => {
-      // force rerender to refresh calculation (hacky)
-      setRender((r) => r + 1);
-      const currentPriceIndex = (getDataQuery.data?.results ?? []).findIndex(
+      // find the index of the price for the current time slot.
+      const index = (getDataQuery.data?.results ?? []).findIndex(
         (x) =>
           new Date(x.valid_from) <= new Date() &&
           new Date() <= new Date(x.valid_to)
       );
-      const currentPrice = getDataQuery.data?.results[currentPriceIndex];
+
+      if (index == null) {
+        return;
+      }
+
+      setCurrentPriceIndex(index);
+      const currentPrice = getDataQuery.data?.results[index];
 
       if (currentPrice) {
         // update the tab/document title when it changes
@@ -65,11 +68,18 @@ export const App: React.FC = () => {
           .slice(0, -3)})`;
         if (document.title != newTitle) {
           document.title = newTitle;
+
+          // also scroll to the item in the list
+          if (priceListItemRefs.current) {
+            priceListItemRefs.current[currentPrice.valid_from]?.scrollIntoView({
+              behavior: "smooth",
+            });
+          }
         }
       }
     };
 
-    // perdiocially refresh
+    // periodically refresh
     const interval = window.setInterval(() => {
       calc();
     }, 10 * 1000);
@@ -93,11 +103,30 @@ export const App: React.FC = () => {
     return <p className="text-center text-gray-500">Loading prices...</p>;
   }
 
+  const currentPrice = getDataQuery.data.results[currentPriceIndex];
+  const nextPrice = getDataQuery.data.results[currentPriceIndex + 1];
+
+  const todayData = getDataQuery.data.results.filter(
+    (x) =>
+      new Date(x.valid_from).getDate() == new Date().getDate() ||
+      new Date(x.valid_to).getDate() === new Date().getDate()
+  );
+
+  const priceColor = (input: Price) => {
+    if (input.valid_to === currentPrice?.valid_to) {
+      return "text-blue-500";
+    }
+    return new Date(input.valid_to) < new Date()
+      ? "text-gray-400"
+      : input.value_inc_vat <= 0
+      ? "text-green-600"
+      : "";
+  };
+
   return (
     <div className="flex flex-column gap-2 p-6 items-center justify-center w-full">
       <div className="flex flex-row gap-2">
         <div className="flex flex-col gap-4">
-          {/* Current Price Card */}
           <Card>
             <CardHeader>
               <CardTitle className="">Current Price</CardTitle>
@@ -105,9 +134,7 @@ export const App: React.FC = () => {
             {currentPrice != null && (
               <CardContent>
                 <p className="text-lg font-bold text-blue-500">
-                  {(Math.round(currentPrice.value_inc_vat * 100) / 100).toFixed(
-                    2
-                  )}
+                  {formatPrice(currentPrice.value_inc_vat)}
                   p/kWh
                 </p>
                 <p className="text-sm text-gray-500">
@@ -120,6 +147,7 @@ export const App: React.FC = () => {
               <p className="text-lg font-bold">Unknown</p>
             )}
           </Card>
+
           <Card>
             <CardHeader>
               <CardTitle>Next Price</CardTitle>
@@ -127,7 +155,7 @@ export const App: React.FC = () => {
             {nextPrice != null && (
               <CardContent>
                 <p className="text-lg font-bold">
-                  {(Math.round(nextPrice.value_inc_vat * 100) / 100).toFixed(2)}
+                  {formatPrice(nextPrice.value_inc_vat)}
                   p/kWh
                 </p>
                 <p className="text-sm text-gray-500">
@@ -142,34 +170,40 @@ export const App: React.FC = () => {
           </Card>
         </div>
 
-        {/* Price History List */}
         <Card className="flex-1">
           <CardHeader>
             <CardTitle>Price History</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="h-96 overflow-y-scroll border rounded-md p-4">
+            <div className="h-96 overflow-y-scroll">
               <ul className="space-y-2">
-                {getDataQuery.data.results
-                  .filter(
-                    (x) =>
-                      new Date(x.valid_from).getDate() == new Date().getDate()
-                  )
-                  .map((price, index) => (
-                    <li key={index} className="border-b pb-2">
-                      <span className="text-gray-600">
-                        {new Date(price.valid_from).toLocaleTimeString()} -{" "}
-                      </span>
-                      <span className="font-semibold">
-                        {price.value_inc_vat}p/kWh
-                      </span>
-                    </li>
-                  ))}
+                {todayData.map((price, index) => (
+                  <li
+                    key={index}
+                    className="border-b pb-2"
+                    ref={(el) => {
+                      if (el) {
+                        priceListItemRefs.current[price.valid_from] = el;
+                      }
+                    }}
+                  >
+                    <span className={priceColor(price)}>
+                      {new Date(price.valid_from).toLocaleTimeString()} -{" "}
+                    </span>
+                    <span className={`font-semibold ${priceColor(price)}`}>
+                      {formatPrice(price.value_inc_vat)}
+                      p/kWh
+                    </span>
+                  </li>
+                ))}
               </ul>
             </div>
           </CardContent>
         </Card>
       </div>
+      {getDataQuery.data && (
+        <Chart key={currentPrice?.valid_to} data={todayData}></Chart>
+      )}
     </div>
   );
 };
