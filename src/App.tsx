@@ -107,9 +107,7 @@ export const App: React.FC = () => {
   const nextPrice = getDataQuery.data.results[currentPriceIndex + 1];
 
   const todayData = getDataQuery.data.results.filter(
-    (x) =>
-      new Date(x.valid_from).getDate() == new Date().getDate() ||
-      new Date(x.valid_to).getDate() === new Date().getDate()
+    (x) => new Date(x.valid_from).getDate() == new Date().getDate()
   );
 
   const priceColor = (input: Price) => {
@@ -202,7 +200,9 @@ export const App: React.FC = () => {
         </Card>
       </div>
       {getDataQuery.data && (
-        <Chart key={currentPrice?.valid_to} data={todayData}></Chart>
+        <div className="h-100 w-2xl">
+          <Chart key={currentPrice?.valid_to} data={todayData}></Chart>
+        </div>
       )}
     </div>
   );

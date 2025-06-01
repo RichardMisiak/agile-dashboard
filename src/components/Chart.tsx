@@ -5,8 +5,10 @@ import {
   XAxis,
   YAxis,
   Tooltip,
+  Label,
   Cell,
   ReferenceLine,
+  ResponsiveContainer,
 } from "recharts";
 
 const SVT = 25.76;
@@ -29,38 +31,44 @@ export const Chart: React.FC<{ data: Price[] }> = ({ data }) => {
   const processedData = processData(data);
 
   return (
-    <BarChart width={600} height={300} data={processedData}>
-      <XAxis
-        dataKey="time"
-        tickFormatter={(x: Date) => {
-          return x.toLocaleTimeString().slice(0, -3);
-        }}
-      />
-      <YAxis />
-      <Tooltip
-        labelFormatter={(x: Date) => {
-          return `${x.toLocaleTimeString()} - ${new Date(
-            x.getTime() + 30 * 60 * 1000
-          ).toLocaleTimeString()}`;
-        }}
-        formatter={(x) => `${x} p/kWh`}
-      />
-      <ReferenceLine y={SVT} label="SVT" strokeDasharray="3 3"></ReferenceLine>
-      <Bar dataKey="price">
-        {processedData.map((entry) => {
-          if (entry.isCurrent) {
-            return <Cell fill={"var(--color-blue-500)"}></Cell>;
-          }
-          const fill = entry.isPast
-            ? entry.price < 0
-              ? "var(--color-green-300)"
-              : "grey"
-            : entry.price < 0
-            ? "var(--color-green-800)"
-            : "black";
-          return <Cell fill={fill}></Cell>;
-        })}
-      </Bar>
-    </BarChart>
+    <ResponsiveContainer width={"100%"} height={"100%"}>
+      <BarChart data={processedData}>
+        <XAxis
+          dataKey="time"
+          tickFormatter={(x: Date) => {
+            return x.toLocaleTimeString().slice(0, -3);
+          }}
+        />
+        <YAxis label={<Label angle={-90}>Unit rate (p/kWh)</Label>} />
+        <Tooltip
+          labelFormatter={(x: Date) => {
+            return `${x.toLocaleTimeString()} - ${new Date(
+              x.getTime() + 30 * 60 * 1000
+            ).toLocaleTimeString()}`;
+          }}
+          formatter={(x) => `${x} p/kWh`}
+        />
+        <ReferenceLine
+          y={SVT}
+          label="SVT"
+          strokeDasharray="3 3"
+        ></ReferenceLine>
+        <Bar dataKey="price">
+          {processedData.map((entry) => {
+            if (entry.isCurrent) {
+              return <Cell fill={"var(--color-blue-500)"}></Cell>;
+            }
+            const fill = entry.isPast
+              ? entry.price < 0
+                ? "var(--color-green-300)"
+                : "grey"
+              : entry.price < 0
+              ? "var(--color-green-800)"
+              : "black";
+            return <Cell fill={fill}></Cell>;
+          })}
+        </Bar>
+      </BarChart>
+    </ResponsiveContainer>
   );
 };
