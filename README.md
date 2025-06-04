@@ -1,3 +1,3 @@
-# Agile ocotpus price dashboard
+# Agile octopus price dashboard
 
 It's a thing
